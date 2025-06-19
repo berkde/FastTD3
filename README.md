@@ -34,7 +34,7 @@ The following libraries are required and will be automatically downloaded by CMa
 
 ### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/berkde/FastTD3
 cd FastTD3
 ```
 
@@ -222,26 +222,6 @@ spdlog::error("Failed to load checkpoint: {}", error_msg);
 spdlog::debug("Detailed training statistics");
 ```
 
-## Extending the Implementation
-
-### Adding New Environments
-
-1. Create a new environment class implementing the required interface
-2. Add environment-specific configuration in `config.cpp`
-3. Update the main training loop to use the new environment
-
-### Adding New Network Architectures
-
-1. Extend the network classes in `networks.hpp` and `networks.cpp`
-2. Add configuration options for the new architecture
-3. Update the training loop to handle the new networks
-
-### Custom Loss Functions
-
-1. Implement custom loss functions in `utils.cpp`
-2. Add configuration options for loss function parameters
-3. Integrate into the training loop
-
 ## Troubleshooting
 
 ### Common Issues
@@ -270,13 +250,6 @@ spdlog::debug("Detailed training statistics");
 - **Network Size**: Larger networks may improve performance but increase training time
 - **Update Frequency**: Higher update frequency can improve sample efficiency
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
 
 ## License
 
