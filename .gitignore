@@ -1,0 +1,10 @@
+build/
+cmake-build-debug/
+*.o
+*.a
+*.cmake
+CMakeFiles/
+CMakeCache.txt
+*.log
+*.d
+.idea/
