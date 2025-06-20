@@ -1,62 +1,41 @@
-cmake_minimum_required(VERSION 3.18)
-project(FastTD3)
+cmake_minimum_required(VERSION 3.16)
+project(FastTD3_Simple)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find required packages
-find_package(Torch REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(CLI11 REQUIRED)
 find_package(nlohmann_json REQUIRED)
-
-# Set compiler flags
-if(MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O3")
-endif()
+find_package(GTest REQUIRED)
 
 # Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(include)
+include_directories(${EIGEN3_INCLUDE_DIR})
 
-# Add subdirectories for source files
-add_subdirectory(src)
+# Source files
+set(SOURCES
+    src/main_simple.cpp
+    src/replay_buffer_simple.cpp
+    src/normalizers_simple.cpp
+    src/utils_simple.cpp
+)
 
-# Create main executable
-add_executable(fast_td3 src/main.cpp)
+# Create executable
+add_executable(fast_td3_simple ${SOURCES})
 
 # Link libraries
-target_link_libraries(fast_td3 
-    ${TORCH_LIBRARIES}
+target_link_libraries(fast_td3_simple
     Eigen3::Eigen
     spdlog::spdlog
     CLI11::CLI11
     nlohmann_json::nlohmann_json
-    fast_td3_lib
 )
 
-# Set properties for the executable
-set_target_properties(fast_td3 PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-)
-
-# Copy torch libraries to output directory (for deployment)
-if(WIN32)
-    add_custom_command(TARGET fast_td3 POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:torch_cpu>
-        $<TARGET_FILE:torch_cuda>
-        $<TARGET_FILE_DIR:fast_td3>
-    )
-endif()
-
-# Add tests if building in test mode
-option(BUILD_TESTS "Build tests" OFF)
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
-endif() 
+# Tests
+enable_testing()
+add_executable(tests_simple tests/test_simple.cpp src/replay_buffer_simple.cpp src/normalizers_simple.cpp src/utils_simple.cpp)
+target_link_libraries(tests_simple GTest::gtest GTest::gtest_main spdlog::spdlog nlohmann_json::nlohmann_json)
+add_test(NAME SimpleTests COMMAND tests_simple) 
