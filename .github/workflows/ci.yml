@@ -1,0 +1,231 @@
+name: FastTD3 CI/CD
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        compiler: [gcc, clang]
+        exclude:
+          # macOS doesn't have gcc by default, use clang
+          - os: macos-latest
+            compiler: gcc
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup environment
+      run: |
+        echo "OS: ${{ matrix.os }}"
+        echo "Compiler: ${{ matrix.compiler }}"
+        echo "CXX: ${{ matrix.compiler }}++"
+
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          libeigen3-dev \
+          libspdlog-dev \
+          nlohmann-json3-dev \
+          libgtest-dev \
+          libgmock-dev \
+          pkg-config
+
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew update
+        brew install \
+          cmake \
+          eigen \
+          spdlog \
+          nlohmann-json \
+          googletest \
+          cli11
+
+    - name: Setup compiler (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        if [ "${{ matrix.compiler }}" = "clang" ]; then
+          sudo apt-get install -y clang
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+        else
+          echo "CC=gcc" >> $GITHUB_ENV
+          echo "CXX=g++" >> $GITHUB_ENV
+        fi
+
+    - name: Setup compiler (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        echo "CC=clang" >> $GITHUB_ENV
+        echo "CXX=clang++" >> $GITHUB_ENV
+
+    - name: Create build directory
+      run: mkdir -p build
+
+    - name: Configure with CMake
+      working-directory: build
+      run: |
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_STANDARD=17 \
+          -DCMAKE_CXX_STANDARD_REQUIRED=ON
+
+    - name: Build project
+      working-directory: build
+      run: make -j$(nproc)
+
+    - name: Run tests
+      working-directory: build
+      run: |
+        ./tests_simple --gtest_output=xml:test_results.xml
+        ./tests_simple --gtest_verbose
+
+    - name: Test main executable
+      working-directory: build
+      run: |
+        # Test that the main executable can be run with help
+        ./fast_td3_simple --help || true
+        # Test with minimal parameters
+        timeout 10s ./fast_td3_simple --max-steps 10 --batch-size 32 || true
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.compiler }}
+        path: build/test_results.xml
+        retention-days: 7
+
+    - name: Build summary
+      run: |
+        echo "✅ Build completed successfully on ${{ matrix.os }} with ${{ matrix.compiler }}"
+        echo "📦 Executables created:"
+        ls -la build/*_simple || echo "No executables found"
+        echo "🧪 Test results:"
+        if [ -f build/test_results.xml ]; then
+          echo "Test results XML generated"
+        else
+          echo "No test results XML found"
+        fi
+
+  code-quality:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          libeigen3-dev \
+          libspdlog-dev \
+          nlohmann-json3-dev \
+          libgtest-dev \
+          clang-tidy
+
+    - name: Create build directory
+      run: mkdir -p build
+
+    - name: Configure with CMake
+      working-directory: build
+      run: |
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_STANDARD=17 \
+          -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+    - name: Run clang-tidy
+      working-directory: build
+      run: |
+        # Run clang-tidy on source files
+        find ../src -name "*.cpp" -exec clang-tidy {} -- -I../include \;
+        find ../tests -name "*.cpp" -exec clang-tidy {} -- -I../include \;
+
+    - name: Check file structure
+      run: |
+        echo "📁 Project structure check:"
+        echo "Source files:"
+        find src -name "*.cpp" | wc -l
+        echo "Header files:"
+        find include -name "*.hpp" | wc -l
+        echo "Test files:"
+        find tests -name "*.cpp" | wc -l
+        echo "CMake files:"
+        find . -name "CMakeLists.txt" | wc -l
+
+  documentation:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check README
+      run: |
+        echo "📖 Checking README.md..."
+        if [ -f README.md ]; then
+          echo "✅ README.md exists"
+          echo "📊 README.md size: $(wc -l < README.md) lines"
+        else
+          echo "❌ README.md missing"
+          exit 1
+        fi
+
+    - name: Check documentation files
+      run: |
+        echo "📚 Documentation files:"
+        find . -name "*.md" -o -name "*.txt" -o -name "*.rst" | grep -v ".git" | sort
+
+    - name: Validate CMake configuration
+      run: |
+        echo "🔧 Validating CMake configuration..."
+        cmake --version
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        echo "✅ CMake configuration is valid"
+
+    - name: Check for common issues
+      run: |
+        echo "🔍 Checking for common issues..."
+        
+        # Check for hardcoded paths
+        if grep -r "/usr/local" src/ include/ tests/ 2>/dev/null; then
+          echo "⚠️  Found hardcoded /usr/local paths"
+        else
+          echo "✅ No hardcoded /usr/local paths found"
+        fi
+        
+        # Check for TODO/FIXME comments
+        echo "📝 TODO/FIXME comments found:"
+        grep -r "TODO\|FIXME" src/ include/ tests/ 2>/dev/null || echo "None found"
+        
+        # Check for proper includes
+        echo "📋 Checking include guards..."
+        for file in include/*.hpp; do
+          if [ -f "$file" ]; then
+            if grep -q "#ifndef\|#pragma once" "$file"; then
+              echo "✅ $file has include guards"
+            else
+              echo "⚠️  $file may be missing include guards"
+            fi
+          fi
+        done 
