@@ -1,5 +1,7 @@
 #include "config.hpp"
+#ifdef CLI11_FOUND
 #include <CLI/CLI.hpp>
+#endif
 #include <spdlog/spdlog.h>
 #include <fstream>
 
@@ -7,6 +9,8 @@ namespace fast_td3 {
 
 Config ConfigManager::parse_args(int argc, char* argv[]) {
     Config config;
+    
+#ifdef CLI11_FOUND
     CLI::App app{"FastTD3 - C++ Implementation"};
     
     // Environment settings
@@ -75,6 +79,37 @@ Config ConfigManager::parse_args(int argc, char* argv[]) {
         spdlog::error("Error parsing arguments: {}", e.what());
         std::exit(app.exit(e));
     }
+#else
+    // Fallback: simple argument parsing without CLI11
+    spdlog::info("CLI11 not available, using default configuration");
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--help" || arg == "-h") {
+            spdlog::info("FastTD3 - C++ Implementation");
+            spdlog::info("Available options (CLI11 not available, using defaults):");
+            spdlog::info("  --seed <int>           Random seed (default: {})", config.seed);
+            spdlog::info("  --max-steps <int>      Maximum training steps (default: {})", config.total_timesteps);
+            spdlog::info("  --batch-size <int>     Batch size (default: {})", config.batch_size);
+            spdlog::info("  --env-name <string>    Environment name (default: {})", config.env_name);
+            spdlog::info("  --log-level <string>   Log level (default: info)");
+            std::exit(0);
+        } else if (arg == "--seed" && i + 1 < argc) {
+            config.seed = std::stoi(argv[++i]);
+        } else if (arg == "--max-steps" && i + 1 < argc) {
+            config.total_timesteps = std::stoi(argv[++i]);
+        } else if (arg == "--batch-size" && i + 1 < argc) {
+            config.batch_size = std::stoi(argv[++i]);
+        } else if (arg == "--env-name" && i + 1 < argc) {
+            config.env_name = argv[++i];
+        } else if (arg == "--log-level" && i + 1 < argc) {
+            std::string level = argv[++i];
+            if (level == "debug") spdlog::set_level(spdlog::level::debug);
+            else if (level == "info") spdlog::set_level(spdlog::level::info);
+            else if (level == "warn") spdlog::set_level(spdlog::level::warn);
+            else if (level == "error") spdlog::set_level(spdlog::level::err);
+        }
+    }
+#endif
     
     // Apply environment-specific configurations
     if (config.env_name.find("h1hand-") == 0 || config.env_name.find("h1-") == 0) {
