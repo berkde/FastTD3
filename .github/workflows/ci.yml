@@ -34,6 +34,12 @@ jobs:
         echo "PyTorch: ${{ matrix.pytorch }}"
         echo "CXX: ${{ matrix.compiler }}++"
 
+    - name: Set up Python 3.11
+      if: matrix.pytorch == 'true'
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
     - name: Install dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
@@ -140,17 +146,23 @@ jobs:
         pkg-config --exists gtest && echo "gtest found via pkg-config" || echo "gtest not found via pkg-config"
         pkg-config --exists nlohmann_json && echo "nlohmann_json found via pkg-config" || echo "nlohmann_json not found via pkg-config"
 
-    - name: Install PyTorch (Ubuntu)
+    - name: Install PyTorch and MuJoCo dependencies (Ubuntu)
       if: matrix.os == 'ubuntu-latest' && matrix.pytorch == 'true'
       run: |
         # Install PyTorch via pip for CI
+        python3 -m pip install --upgrade pip
         python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+        # Install MuJoCo and related packages
+        python3 -m pip install "gymnasium[mujoco]" pybind11
 
-    - name: Install PyTorch (macOS)
+    - name: Install PyTorch and MuJoCo dependencies (macOS)
       if: matrix.os == 'macos-latest' && matrix.pytorch == 'true'
       run: |
         # Install PyTorch via pip for CI
+        python3 -m pip install --upgrade pip
         python3 -m pip install torch torchvision torchaudio
+        # Install MuJoCo and related packages
+        python3 -m pip install "gymnasium[mujoco]" pybind11
 
     - name: Setup compiler (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
@@ -259,6 +271,17 @@ jobs:
         # Test with minimal parameters (CPU only)
         timeout 10s ./fast_td3_pytorch --max-steps 10 --batch-size 32 || true
 
+    - name: Test MuJoCo executable
+      if: matrix.pytorch == 'true'
+      working-directory: build
+      run: |
+        # Test that the MuJoCo executable can be run with help
+        ./fast_td3_mujoco --help || true
+        # Test with minimal parameters (headless mode)
+        timeout 10s ./fast_td3_mujoco --env_name Humanoid-v5 --total_timesteps 10 --num_envs 1 --learning_starts 0 || true
+      env:
+        MUJOCO_GL: "osmesa"
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
@@ -275,6 +298,7 @@ jobs:
         echo "📦 Executables created:"
         ls -la build/*_simple || echo "No simple executables found"
         ls -la build/*_pytorch || echo "No PyTorch executables found"
+        ls -la build/*_mujoco || echo "No MuJoCo executables found"
         echo "🧪 Test results:"
         if [ -f build/test_results.xml ]; then
           echo "Test results XML generated"
