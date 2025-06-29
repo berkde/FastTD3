@@ -96,6 +96,18 @@ jobs:
         find /usr -name "*spdlog*" -type f 2>/dev/null | head -10 || echo "No spdlog files found"
         echo "Checking spdlog libraries:"
         ls -la /usr/lib/ | grep -i spdlog || echo "No spdlog in /usr/lib/"
+        
+        # Verify GTest installation
+        echo "Verifying GTest installation..."
+        ls -la /usr/include/gtest/ || echo "gtest not found in /usr/include/gtest/"
+        ls -la /usr/include/gmock/ || echo "gmock not found in /usr/include/gmock/"
+        find /usr -name "*gtest*" -type f 2>/dev/null | head -5 || echo "No gtest files found"
+        find /usr -name "*gmock*" -type f 2>/dev/null | head -5 || echo "No gmock files found"
+        
+        # Verify nlohmann-json installation
+        echo "Verifying nlohmann-json installation..."
+        ls -la /usr/include/nlohmann/ || echo "nlohmann not found in /usr/include/nlohmann/"
+        find /usr -name "*nlohmann*" -type f 2>/dev/null | head -5 || echo "No nlohmann files found"
 
     - name: Install dependencies (macOS)
       if: matrix.os == 'macos-latest'
@@ -108,6 +120,25 @@ jobs:
           nlohmann-json \
           googletest \
           cli11
+        
+        # Verify installations
+        echo "=== Verifying installations on macOS ==="
+        echo "Eigen3:"
+        ls -la /opt/homebrew/include/eigen3/ || echo "Eigen3 not found in Homebrew"
+        echo "spdlog:"
+        ls -la /opt/homebrew/include/spdlog/ || echo "spdlog not found in Homebrew"
+        echo "GTest:"
+        ls -la /opt/homebrew/include/gtest/ || echo "gtest not found in Homebrew"
+        ls -la /opt/homebrew/include/gmock/ || echo "gmock not found in Homebrew"
+        echo "nlohmann-json:"
+        ls -la /opt/homebrew/include/nlohmann/ || echo "nlohmann not found in Homebrew"
+        
+        # Check pkg-config
+        echo "=== pkg-config checks ==="
+        pkg-config --exists eigen3 && echo "Eigen3 found via pkg-config" || echo "Eigen3 not found via pkg-config"
+        pkg-config --exists spdlog && echo "spdlog found via pkg-config" || echo "spdlog not found via pkg-config"
+        pkg-config --exists gtest && echo "gtest found via pkg-config" || echo "gtest not found via pkg-config"
+        pkg-config --exists nlohmann_json && echo "nlohmann_json found via pkg-config" || echo "nlohmann_json not found via pkg-config"
 
     - name: Install PyTorch (Ubuntu)
       if: matrix.os == 'ubuntu-latest' && matrix.pytorch == 'true'
@@ -163,16 +194,44 @@ jobs:
             -DCMAKE_CXX_STANDARD_REQUIRED=ON \
             -DEIGEN3_INCLUDE_DIR=/usr/include/eigen3
         fi
+        
+        echo "=== CMake configuration complete ==="
+        echo "Available targets:"
+        cmake --build . --target help || echo "Could not list targets"
+        echo "CMake cache contents:"
+        cat CMakeCache.txt | grep -E "(CMAKE|EIGEN|SPDLOG|GTEST)" || echo "No relevant cache entries found"
 
     - name: Build project
       working-directory: build
       run: make -j$(nproc)
 
+    - name: List build artifacts
+      working-directory: build
+      run: |
+        echo "=== Build artifacts ==="
+        ls -la
+        echo "=== Test executables ==="
+        find . -name "*test*" -type f -executable || echo "No test executables found"
+        echo "=== All executables ==="
+        find . -type f -executable || echo "No executables found"
+
     - name: Run tests
       working-directory: build
       run: |
-        ./tests_simple --gtest_output=xml:test_results.xml
-        ./tests_simple --gtest_verbose
+        # Check if test executable exists
+        if [ -f "./tests_simple" ]; then
+          echo "Test executable found, running tests..."
+          ./tests_simple --gtest_output=xml:test_results.xml
+          ./tests_simple --gtest_verbose
+        else
+          echo "ERROR: tests_simple executable not found!"
+          echo "Available files:"
+          ls -la
+          echo "Trying to build tests explicitly..."
+          make tests_simple || echo "Failed to build tests_simple"
+          ls -la tests_simple || echo "tests_simple still not found after explicit build"
+          exit 1
+        fi
 
     - name: Test simple executable
       working-directory: build
