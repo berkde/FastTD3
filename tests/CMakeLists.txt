@@ -1,30 +1,45 @@
-# Test configuration
-find_package(GTest REQUIRED)
+# Enable testing
+enable_testing()
 
-# Create test executable
-add_executable(fast_td3_tests
-    test_basic.cpp
+# Find required packages for testing
+find_package(GTest REQUIRED)
+find_package(nlohmann_json REQUIRED)
+
+# Simple version tests
+set(SIMPLE_TEST_SOURCES
+    simple/test_simple.cpp
+    ../src/simple/replay_buffer_simple.cpp
+    ../src/simple/normalizers_simple.cpp
+    ../src/simple/utils_simple.cpp
 )
 
-# Link libraries
-target_link_libraries(fast_td3_tests
-    fast_td3_lib
+add_executable(tests_simple ${SIMPLE_TEST_SOURCES})
+
+target_link_libraries(tests_simple
     GTest::gtest
     GTest::gtest_main
-    ${TORCH_LIBRARIES}
+    nlohmann_json::nlohmann_json
     Eigen3::Eigen
     spdlog::spdlog
-    nlohmann_json::nlohmann_json
 )
 
-# Set properties
-set_target_properties(fast_td3_tests PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-)
+add_test(NAME SimpleTests COMMAND tests_simple)
 
-# Add test
-add_test(NAME FastTD3Tests COMMAND fast_td3_tests)
-
-# Enable CTest
-enable_testing() 
+# PyTorch version tests (if available)
+if(Torch_FOUND)
+    set(PYTORCH_TEST_SOURCES
+        pytorch/test_basic.cpp
+    )
+    
+    add_executable(tests_pytorch ${PYTORCH_TEST_SOURCES})
+    
+    target_link_libraries(tests_pytorch
+        GTest::gtest
+        GTest::gtest_main
+        nlohmann_json::nlohmann_json
+        ${TORCH_LIBRARIES}
+        spdlog::spdlog
+    )
+    
+    add_test(NAME PyTorchTests COMMAND tests_pytorch)
+endif() 

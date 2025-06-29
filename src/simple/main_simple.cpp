@@ -9,6 +9,7 @@
 #endif
 #include <nlohmann/json.hpp>
 #include <Eigen/Dense>
+#include "config.hpp"
 #include "replay_buffer_simple.hpp"
 #include "normalizers_simple.hpp"
 #include "utils_simple.hpp"

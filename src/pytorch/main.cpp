@@ -5,10 +5,10 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include "config.hpp"
 #include "networks.hpp"
 #include "replay_buffer.hpp"
 #include "normalizers.hpp"
-#include "config.hpp"
 #include "utils.hpp"
 
 // Mock environment interface for demonstration
@@ -204,7 +204,7 @@ int main(int argc, char* argv[]) {
                 critic_optimizer.zero_grad();
                 auto critic_loss = fast_td3::compute_critic_loss(
                     critic, batch.critic_observations, batch.actions, target_q, config.use_cdq);
-                critic_loss.backward();
+                critic_loss.backward({}, /*retain_graph=*/true);
                 if (config.max_grad_norm > 0) {
                     torch::nn::utils::clip_grad_norm_(critic->parameters(), config.max_grad_norm);
                 }
@@ -222,10 +222,10 @@ int main(int argc, char* argv[]) {
                     actor_optimizer.step();
                     
                     // Update target network
+                    torch::NoGradGuard no_grad;
                     for (auto& target_param : critic_target->parameters()) {
                         auto& param = critic->parameters()[&target_param - &critic_target->parameters()[0]];
-                        target_param.data().copy_(config.tau * param.data() + 
-                                                (1 - config.tau) * target_param.data());
+                        target_param.copy_(config.tau * param + (1 - config.tau) * target_param);
                     }
                 }
                 

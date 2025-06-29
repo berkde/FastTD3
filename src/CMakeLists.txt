@@ -1,22 +1,62 @@
-# Create library for FastTD3 components
-add_library(fast_td3_lib STATIC
-    networks.cpp
-    replay_buffer.cpp
-    normalizers.cpp
-    utils.cpp
-    config.cpp
+# Core components (shared)
+set(CORE_SOURCES
+    core/config.cpp
 )
 
-# Set properties for the library
-set_target_properties(fast_td3_lib PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
+# Simple version (Eigen-based)
+set(SIMPLE_SOURCES
+    simple/main_simple.cpp
+    simple/replay_buffer_simple.cpp
+    simple/normalizers_simple.cpp
+    simple/utils_simple.cpp
 )
 
-# Link libraries for the static library
-target_link_libraries(fast_td3_lib
-    ${TORCH_LIBRARIES}
+# PyTorch version (if available)
+if(Torch_FOUND)
+    set(PYTORCH_SOURCES
+        pytorch/main.cpp
+        pytorch/networks.cpp
+        pytorch/replay_buffer.cpp
+        pytorch/normalizers.cpp
+        pytorch/utils.cpp
+    )
+endif()
+
+# Build simple version
+add_executable(fast_td3_simple ${CORE_SOURCES} ${SIMPLE_SOURCES})
+
+target_link_libraries(fast_td3_simple
     Eigen3::Eigen
     spdlog::spdlog
-    nlohmann_json::nlohmann_json
-) 
+)
+
+if(CLI11_FOUND)
+    target_link_libraries(fast_td3_simple CLI11::CLI11)
+endif()
+
+# Build PyTorch version (if available)
+if(Torch_FOUND)
+    add_executable(fast_td3_pytorch ${CORE_SOURCES} ${PYTORCH_SOURCES})
+    
+    target_link_libraries(fast_td3_pytorch
+        ${TORCH_LIBRARIES}
+        spdlog::spdlog
+    )
+    
+    if(CLI11_FOUND)
+        target_link_libraries(fast_td3_pytorch CLI11::CLI11)
+    endif()
+    
+    # Set RPATH for PyTorch libraries
+    if(APPLE)
+        set_target_properties(fast_td3_pytorch PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "@executable_path;@executable_path/../lib"
+        )
+    elseif(UNIX AND NOT APPLE)
+        set_target_properties(fast_td3_pytorch PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib"
+        )
+    endif()
+endif() 

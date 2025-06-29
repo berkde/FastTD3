@@ -42,22 +42,21 @@ void SimpleReplayBuffer::extend(const Transition& transition) {
     int current_ptr = ptr % buffer_size;
     
     observations.index_put_({torch::indexing::Slice(), current_ptr, torch::indexing::Slice()}, 
-                           transition.observations);
+                           transition.observations.detach());
     actions.index_put_({torch::indexing::Slice(), current_ptr, torch::indexing::Slice()}, 
-                      transition.actions);
-    rewards.index_put_({torch::indexing::Slice(), current_ptr}, transition.rewards);
-    dones.index_put_({torch::indexing::Slice(), current_ptr}, transition.dones);
-    truncations.index_put_({torch::indexing::Slice(), current_ptr}, transition.truncations);
+                      transition.actions.detach());
+    rewards.index_put_({torch::indexing::Slice(), current_ptr}, transition.rewards.detach());
+    dones.index_put_({torch::indexing::Slice(), current_ptr}, transition.dones.detach());
+    truncations.index_put_({torch::indexing::Slice(), current_ptr}, transition.truncations.detach());
     next_observations.index_put_({torch::indexing::Slice(), current_ptr, torch::indexing::Slice()}, 
-                                transition.next_observations);
+                                transition.next_observations.detach());
     
     if (asymmetric_obs) {
         if (playground_mode) {
-            // Extract and store only the privileged part
             auto privileged_obs = transition.critic_observations.index({torch::indexing::Slice(), 
-                                                                      torch::indexing::Slice(n_obs, torch::indexing::None)});
+                                                                      torch::indexing::Slice(n_obs, torch::indexing::None)}).detach();
             auto next_privileged_obs = transition.next_critic_observations.index({torch::indexing::Slice(), 
-                                                                                torch::indexing::Slice(n_obs, torch::indexing::None)});
+                                                                                torch::indexing::Slice(n_obs, torch::indexing::None)}).detach();
             
             privileged_observations.index_put_({torch::indexing::Slice(), current_ptr, torch::indexing::Slice()}, 
                                              privileged_obs);
@@ -65,9 +64,9 @@ void SimpleReplayBuffer::extend(const Transition& transition) {
                                                   next_privileged_obs);
         } else {
             critic_observations.index_put_({torch::indexing::Slice(), current_ptr, torch::indexing::Slice()}, 
-                                         transition.critic_observations);
+                                         transition.critic_observations.detach());
             next_critic_observations.index_put_({torch::indexing::Slice(), current_ptr, torch::indexing::Slice()}, 
-                                              transition.next_critic_observations);
+                                              transition.next_critic_observations.detach());
         }
     }
     
@@ -79,7 +78,8 @@ Transition SimpleReplayBuffer::sample(int batch_size) {
     
     if (n_steps == 1) {
         auto indices = torch::randint(0, std::min(buffer_size, ptr), 
-                                    {n_env, batch_size}, device);
+                                    {n_env, batch_size}, 
+                                    torch::TensorOptions().dtype(torch::kInt64).device(device));
         
         auto obs_indices = indices.unsqueeze(-1).expand({-1, -1, n_obs});
         auto act_indices = indices.unsqueeze(-1).expand({-1, -1, n_act});
