@@ -84,6 +84,18 @@ jobs:
           cd -
           echo "Eigen3 installed from source"
         fi
+        
+        # Verify spdlog installation
+        echo "Verifying spdlog installation..."
+        ls -la /usr/include/spdlog/ || echo "spdlog not found in /usr/include/spdlog/"
+        find /usr -name "spdlog" -type d 2>/dev/null | head -5 || echo "No spdlog directories found"
+        pkg-config --exists spdlog && echo "spdlog found via pkg-config" || echo "spdlog not found via pkg-config"
+        
+        # Additional spdlog debugging
+        echo "Checking for spdlog files:"
+        find /usr -name "*spdlog*" -type f 2>/dev/null | head -10 || echo "No spdlog files found"
+        echo "Checking spdlog libraries:"
+        ls -la /usr/lib/ | grep -i spdlog || echo "No spdlog in /usr/lib/"
 
     - name: Install dependencies (macOS)
       if: matrix.os == 'macos-latest'
