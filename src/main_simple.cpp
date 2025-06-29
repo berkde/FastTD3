@@ -277,9 +277,9 @@ int main(int argc, char* argv[]) {
             std::vector<bool> dones;
             
             for (int i = 0; i < batch.size; ++i) {
-                Vector state_vec = Eigen::Map<const Vector>(batch.states[i], state_dim);
-                Vector action_vec = Eigen::Map<const Vector>(batch.actions[i], action_dim);
-                Vector next_state_vec = Eigen::Map<const Vector>(batch.next_states[i], state_dim);
+                Vector state_vec = Eigen::Map<const Vector>(batch.states[i].data(), state_dim);
+                Vector action_vec = Eigen::Map<const Vector>(batch.actions[i].data(), action_dim);
+                Vector next_state_vec = Eigen::Map<const Vector>(batch.next_states[i].data(), state_dim);
                 
                 states.push_back(state_vec);
                 actions.push_back(action_vec);
