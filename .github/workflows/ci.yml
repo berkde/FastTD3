@@ -48,6 +48,12 @@ jobs:
           libgmock-dev \
           pkg-config \
           git
+        
+        # Verify Eigen3 installation
+        echo "Verifying Eigen3 installation..."
+        ls -la /usr/include/eigen3/ || echo "Eigen3 not found in /usr/include/eigen3/"
+        find /usr -name "Eigen" -type d 2>/dev/null | head -5 || echo "No Eigen directories found"
+        pkg-config --exists eigen3 && echo "Eigen3 found via pkg-config" || echo "Eigen3 not found via pkg-config"
 
     - name: Install dependencies (macOS)
       if: matrix.os == 'macos-latest'
@@ -97,17 +103,23 @@ jobs:
     - name: Configure with CMake
       working-directory: build
       run: |
+        # Set Eigen3 path explicitly for CI
+        export EIGEN3_INCLUDE_DIR=/usr/include/eigen3
+        export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:/usr/include/eigen3
+        
         if [ "${{ matrix.pytorch }}" = "true" ]; then
           cmake .. \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_STANDARD=17 \
             -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+            -DEIGEN3_INCLUDE_DIR=/usr/include/eigen3 \
             -DCMAKE_PREFIX_PATH=$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')
         else
           cmake .. \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_STANDARD=17 \
-            -DCMAKE_CXX_STANDARD_REQUIRED=ON
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+            -DEIGEN3_INCLUDE_DIR=/usr/include/eigen3
         fi
 
     - name: Build project
