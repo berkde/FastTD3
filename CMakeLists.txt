@@ -5,7 +5,37 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Find required packages
-find_package(Eigen3 REQUIRED)
+find_package(Eigen3 QUIET)
+if(NOT Eigen3_FOUND)
+    # Try alternative names for Eigen3
+    find_package(Eigen3 QUIET NAMES Eigen3 eigen3)
+endif()
+
+if(NOT Eigen3_FOUND)
+    # Try to find Eigen3 in common locations
+    find_path(EIGEN3_INCLUDE_DIR NAMES Eigen/Dense
+        PATHS
+        /usr/include/eigen3
+        /usr/local/include/eigen3
+        /opt/homebrew/include/eigen3
+        /usr/include
+        /usr/local/include
+    )
+    
+    if(EIGEN3_INCLUDE_DIR)
+        set(Eigen3_FOUND TRUE)
+        set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
+        message(STATUS "Eigen3 found manually: ${EIGEN3_INCLUDE_DIR}")
+    else()
+        message(FATAL_ERROR "Eigen3 not found. Please install Eigen3:")
+        message(FATAL_ERROR "  Ubuntu/Debian: sudo apt-get install libeigen3-dev")
+        message(FATAL_ERROR "  macOS: brew install eigen")
+        message(FATAL_ERROR "  Or download from: https://eigen.tuxfamily.org/")
+    endif()
+else()
+    message(STATUS "Eigen3 found: ${Eigen3_VERSION}")
+endif()
+
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(GTest REQUIRED)
