@@ -50,4 +50,19 @@ if(Torch_FOUND)
     endif()
     
     add_test(NAME PyTorchTests COMMAND tests_pytorch)
+endif()
+
+# MuJoCo integration tests (if available)
+if(Torch_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/src/pytorch/mujoco_env.cpp")
+    # Add custom test for MuJoCo integration script
+    add_test(
+        NAME MuJoCoIntegrationTest
+        COMMAND ${CMAKE_SOURCE_DIR}/tests/scripts/test_mujoco_integration.sh
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    )
+    
+    # Set environment variables for headless mode in CI
+    set_tests_properties(MuJoCoIntegrationTest PROPERTIES
+        ENVIRONMENT "MUJOCO_GL=osmesa"
+    )
 endif() 
