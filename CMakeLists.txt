@@ -159,6 +159,12 @@ target_link_libraries(fast_td3_simple
     nlohmann_json::nlohmann_json
 )
 
+if(spdlog_FOUND)
+    target_link_libraries(fast_td3_simple spdlog::spdlog)
+else()
+    target_link_libraries(fast_td3_simple ${SPDLOG_LIBRARIES})
+    target_include_directories(fast_td3_simple PRIVATE ${SPDLOG_INCLUDE_DIRS})
+endif()
 
 if(CLI11_FOUND)
     target_link_libraries(fast_td3_simple CLI11::CLI11)
