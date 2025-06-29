@@ -32,6 +32,7 @@ target_link_libraries(fast_td3_simple
 
 if(CLI11_FOUND)
     target_link_libraries(fast_td3_simple CLI11::CLI11)
+    target_compile_definitions(fast_td3_simple PRIVATE CLI11_FOUND)
 endif()
 
 # Build PyTorch version (if available)
@@ -45,6 +46,7 @@ if(Torch_FOUND)
     
     if(CLI11_FOUND)
         target_link_libraries(fast_td3_pytorch CLI11::CLI11)
+        target_compile_definitions(fast_td3_pytorch PRIVATE CLI11_FOUND)
     endif()
     
     # Set RPATH for PyTorch libraries
