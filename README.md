@@ -1,6 +1,6 @@
 # FastTD3 Simple - C++ Implementation
 
-[![CI/CD](https://github.com/yourusername/FastTD3/workflows/FastTD3%20CI%2FCD/badge.svg)](https://github.com/yourusername/FastTD3/actions)
+[![CI/CD](https://github.com/berkde/FastTD3/workflows/FastTD3%20CI%2FCD/badge.svg)](https://github.com/berkde/FastTD3/actions)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.16+-green.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -27,6 +27,55 @@ A simplified C++ implementation of the FastTD3 algorithm without LibTorch depend
 
 ## Installation
 
+### Prerequisites
+
+The project supports two modes:
+1. **Simple Mode**: Uses only Eigen for matrix operations (no PyTorch required)
+2. **PyTorch Mode**: Full PyTorch integration with neural networks
+
+### Dependencies
+
+#### Required (All Modes)
+- **Eigen3**: Matrix operations and linear algebra
+- **spdlog**: Fast logging library
+- **CLI11**: Command-line argument parsing
+- **nlohmann/json**: JSON parsing and serialization
+- **Google Test**: Unit testing framework
+
+#### Optional (PyTorch Mode)
+- **PyTorch (LibTorch)**: Neural network operations and GPU support
+
+### PyTorch Setup
+
+#### Automatic Setup (Recommended)
+```bash
+# Run the setup script
+./setup_pytorch.sh
+
+# Follow the interactive prompts to install PyTorch
+```
+
+#### Manual Setup
+
+**Option 1: Download LibTorch**
+```bash
+# Download from https://pytorch.org/get-started/locally/
+# Extract to third_party/libtorch/
+mkdir -p third_party
+cd third_party
+# Download and extract libtorch-*.zip
+cd ..
+```
+
+**Option 2: Install via pip**
+```bash
+# Install PyTorch via pip
+pip install torch torchvision torchaudio
+
+# Build with Python PyTorch path
+cmake -DCMAKE_PREFIX_PATH=$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)') ..
+```
+
 ### macOS (using Homebrew)
 
 ```bash
@@ -39,29 +88,91 @@ cmake ..
 make -j4
 ```
 
+### Linux (Ubuntu/Debian)
+
+```bash
+# Install dependencies
+sudo apt-get update
+sudo apt-get install -y \
+  build-essential \
+  cmake \
+  libeigen3-dev \
+  libspdlog-dev \
+  nlohmann-json3-dev \
+  libgtest-dev \
+  libgmock-dev
+
+# Build the project
+mkdir build && cd build
+cmake ..
+make -j4
+```
+
+### Windows
+
+```bash
+# Install dependencies via vcpkg or manually
+# Build with Visual Studio or MinGW
+mkdir build && cd build
+cmake ..
+cmake --build . --config Release
+```
+
 ## Usage
 
-### Basic Training
+### Building
 
+The project will automatically detect if PyTorch is available and build accordingly:
+
+```bash
+mkdir build && cd build
+cmake ..
+make -j4
+```
+
+**Available Executables:**
+- `fast_td3_simple`: Eigen-only version (always available)
+- `fast_td3_pytorch`: Full PyTorch version (if PyTorch found)
+
+### Running
+
+#### Simple Mode (Eigen Only)
 ```bash
 # Run with default parameters
 ./fast_td3_simple
 
 # Run with custom parameters
 ./fast_td3_simple --max-steps 100000 --batch-size 256 --state-dim 17 --action-dim 6
+```
 
-# Run with debug logging
-./fast_td3_simple --log-level debug
+#### PyTorch Mode (Full Features)
+```bash
+# Run with default parameters
+./fast_td3_pytorch
+
+# Run with GPU support (if available)
+./fast_td3_pytorch --cuda --device-rank 0
 ```
 
 ### Command Line Options
 
+#### Simple Mode Options
 - `--seed`: Random seed (default: 42)
 - `--max-steps`: Maximum training steps (default: 1000000)
 - `--batch-size`: Batch size for training (default: 256)
 - `--state-dim`: State dimension (default: 17)
 - `--action-dim`: Action dimension (default: 6)
 - `--log-level`: Log level - debug, info, warn, error (default: info)
+
+#### PyTorch Mode Options
+- All simple mode options plus:
+- `--cuda`: Enable CUDA support
+- `--device-rank`: GPU device rank (default: 0)
+- `--num-envs`: Number of parallel environments
+- `--total-timesteps`: Total training timesteps
+- `--learning-starts`: Steps before learning begins
+- `--policy-frequency`: Policy update frequency
+- `--num-updates`: Number of updates per step
 
 ## Testing
 
