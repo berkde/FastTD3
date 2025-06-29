@@ -7,13 +7,66 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find required packages
 find_package(Eigen3 REQUIRED)
 find_package(spdlog REQUIRED)
-find_package(CLI11 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(GTest REQUIRED)
+
+# Optional packages
+find_package(CLI11 QUIET)
+if(NOT CLI11_FOUND)
+    message(STATUS "CLI11 not found. Command-line argument parsing will be limited.")
+    add_definitions(-DNO_CLI11)
+else()
+    message(STATUS "CLI11 found: ${CLI11_VERSION}")
+    add_definitions(-DUSE_CLI11)
+endif()
+
+# PyTorch (LibTorch) configuration
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "${CMAKE_SOURCE_DIR}/third_party/libtorch")
+find_package(Torch QUIET)
+
+if(NOT Torch_FOUND)
+    # Try to find PyTorch in system paths
+    find_package(Torch QUIET)
+endif()
+
+if(NOT Torch_FOUND)
+    # Try to find PyTorch via Python
+    find_package(Python3 QUIET)
+    if(Python3_FOUND)
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c "import torch; print(torch.utils.cmake_prefix_path)"
+            OUTPUT_VARIABLE TORCH_CMAKE_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+        if(TORCH_CMAKE_PATH)
+            list(APPEND CMAKE_PREFIX_PATH ${TORCH_CMAKE_PATH})
+            find_package(Torch QUIET)
+        endif()
+    endif()
+endif()
+
+if(Torch_FOUND)
+    message(STATUS "PyTorch found: ${Torch_VERSION}")
+    message(STATUS "PyTorch libraries: ${TORCH_LIBRARIES}")
+    message(STATUS "PyTorch include dirs: ${TORCH_INCLUDE_DIRS}")
+    add_definitions(-DUSE_PYTORCH)
+else()
+    message(WARNING "PyTorch not found. Building without PyTorch support.")
+    message(STATUS "To enable PyTorch support:")
+    message(STATUS "  1. Download LibTorch from https://pytorch.org/get-started/locally/")
+    message(STATUS "  2. Extract to third_party/libtorch/")
+    message(STATUS "  3. Or install PyTorch via pip and set CMAKE_PREFIX_PATH")
+    add_definitions(-DNO_PYTORCH)
+endif()
 
 # Include directories
 include_directories(include)
 include_directories(${EIGEN3_INCLUDE_DIR})
+
+if(Torch_FOUND)
+    include_directories(${TORCH_INCLUDE_DIRS})
+endif()
 
 # Source files
 set(SOURCES
@@ -30,12 +83,58 @@ add_executable(fast_td3_simple ${SOURCES})
 target_link_libraries(fast_td3_simple
     Eigen3::Eigen
     spdlog::spdlog
-    CLI11::CLI11
     nlohmann_json::nlohmann_json
 )
+
+if(CLI11_FOUND)
+    target_link_libraries(fast_td3_simple CLI11::CLI11)
+endif()
+
+if(Torch_FOUND)
+    target_link_libraries(fast_td3_simple ${TORCH_LIBRARIES})
+    set_property(TARGET fast_td3_simple PROPERTY CXX_STANDARD 17)
+    
+    # Set RPATH for PyTorch libraries
+    if(APPLE)
+        set_target_properties(fast_td3_simple PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "@executable_path;@executable_path/../lib"
+        )
+    elseif(UNIX AND NOT APPLE)
+        set_target_properties(fast_td3_simple PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib"
+        )
+    endif()
+endif()
 
 # Tests
 enable_testing()
 add_executable(tests_simple tests/test_simple.cpp src/replay_buffer_simple.cpp src/normalizers_simple.cpp src/utils_simple.cpp)
 target_link_libraries(tests_simple GTest::gtest GTest::gtest_main spdlog::spdlog nlohmann_json::nlohmann_json)
-add_test(NAME SimpleTests COMMAND tests_simple) 
+add_test(NAME SimpleTests COMMAND tests_simple)
+
+# PyTorch version (if available)
+if(Torch_FOUND)
+    add_executable(fast_td3_pytorch src/main.cpp src/networks.cpp src/replay_buffer.cpp src/normalizers.cpp src/utils.cpp src/config.cpp)
+    target_link_libraries(fast_td3_pytorch ${TORCH_LIBRARIES} spdlog::spdlog nlohmann_json::nlohmann_json)
+    
+    if(CLI11_FOUND)
+        target_link_libraries(fast_td3_pytorch CLI11::CLI11)
+    endif()
+    
+    set_property(TARGET fast_td3_pytorch PROPERTY CXX_STANDARD 17)
+    
+    # Set RPATH for PyTorch libraries
+    if(APPLE)
+        set_target_properties(fast_td3_pytorch PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "@executable_path;@executable_path/../lib"
+        )
+    elseif(UNIX AND NOT APPLE)
+        set_target_properties(fast_td3_pytorch PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib"
+        )
+    endif()
+endif() 
