@@ -211,7 +211,7 @@ int main(int argc, char* argv[]) {
     int batch_size = arg_parser.get("batch-size", 256);
     int state_dim = arg_parser.get("state-dim", 17);  // Humanoid state dimension
     int action_dim = arg_parser.get("action-dim", 6);  // Humanoid action dimension
-    std::string log_level = arg_parser.get("log-level", "info");
+    std::string log_level = arg_parser.get("log-level", std::string("info"));
     
     // Set up logging
     if (log_level == "debug") spdlog::set_level(spdlog::level::debug);
