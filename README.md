@@ -1,21 +1,23 @@
-# FastTD3 Simple - C++ Implementation
+# FastTD3 - C++ Implementation
 
 [![CI/CD](https://github.com/berkde/FastTD3/workflows/FastTD3%20CI%2FCD/badge.svg)](https://github.com/berkde/FastTD3/actions)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/std/the-standard)
 [![CMake](https://img.shields.io/badge/CMake-3.16+-green.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A simplified C++ implementation of the FastTD3 algorithm without LibTorch dependencies. This version uses Eigen for matrix operations and provides a working foundation for the TD3 algorithm.
+A C++ implementation of the TD3 (Twin Delayed Deep Deterministic Policy Gradient) algorithm with both simple Eigen-based and full PyTorch versions. The project provides a complete, production-ready implementation with comprehensive testing and CI/CD support.
 
 ## Features
 
-- **No LibTorch Dependencies**: Uses only standard C++ libraries and Eigen
-- **Simple Neural Networks**: Basic feedforward networks with ReLU activation
+- **Dual Implementation**: Both simple Eigen-based and full PyTorch versions
+- **Simple Mode**: No LibTorch dependencies, uses Eigen for matrix operations
+- **PyTorch Mode**: Full neural network capabilities with GPU support
 - **Replay Buffer**: Efficient experience replay for off-policy learning
 - **Empirical Normalization**: State normalization for stable training
-- **TD3 Algorithm**: Twin Delayed Deep Deterministic Policy Gradient
+- **TD3 Algorithm**: Complete Twin Delayed Deep Deterministic Policy Gradient implementation
 - **Modern C++**: Uses C++17 features and modern libraries
 - **Comprehensive Testing**: Unit tests for all core components
+- **CI/CD Pipeline**: Automated building and testing on multiple platforms
 
 ## Dependencies
 
