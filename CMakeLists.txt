@@ -43,7 +43,44 @@ else()
     message(STATUS "Eigen3 found: ${Eigen3_VERSION}")
 endif()
 
-find_package(spdlog REQUIRED)
+find_package(spdlog QUIET)
+if(NOT spdlog_FOUND)
+    message(STATUS "spdlog not found via find_package, trying manual detection...")
+    # Try to find spdlog in common locations
+    find_path(SPDLOG_INCLUDE_DIR NAMES spdlog/spdlog.h
+        PATHS
+        /usr/include
+        /usr/local/include
+        /opt/homebrew/include
+    )
+    
+    find_library(SPDLOG_LIBRARY NAMES spdlog
+        PATHS
+        /usr/lib
+        /usr/local/lib
+        /opt/homebrew/lib
+    )
+    
+    if(SPDLOG_INCLUDE_DIR AND SPDLOG_LIBRARY)
+        set(spdlog_FOUND TRUE)
+        set(SPDLOG_INCLUDE_DIRS ${SPDLOG_INCLUDE_DIR})
+        set(SPDLOG_LIBRARIES ${SPDLOG_LIBRARY})
+        message(STATUS "spdlog found manually: ${SPDLOG_INCLUDE_DIR}")
+    else()
+        message(STATUS "spdlog not found manually, trying to continue anyway...")
+        # Try to continue with a default path
+        set(SPDLOG_INCLUDE_DIR "/usr/include")
+        set(SPDLOG_INCLUDE_DIRS ${SPDLOG_INCLUDE_DIR})
+        set(SPDLOG_LIBRARIES "spdlog")
+        message(STATUS "Using default spdlog path: ${SPDLOG_INCLUDE_DIR}")
+        message(WARNING "spdlog not found. Please install spdlog:")
+        message(WARNING "  Ubuntu/Debian: sudo apt-get install libspdlog-dev")
+        message(WARNING "  macOS: brew install spdlog")
+    endif()
+else()
+    message(STATUS "spdlog found: ${spdlog_VERSION}")
+endif()
+
 find_package(nlohmann_json REQUIRED)
 find_package(GTest REQUIRED)
 
@@ -119,9 +156,15 @@ add_executable(fast_td3_simple ${SOURCES})
 # Link libraries
 target_link_libraries(fast_td3_simple
     Eigen3::Eigen
-    spdlog::spdlog
     nlohmann_json::nlohmann_json
 )
+
+if(spdlog_FOUND)
+    target_link_libraries(fast_td3_simple spdlog::spdlog)
+else()
+    target_link_libraries(fast_td3_simple ${SPDLOG_LIBRARIES})
+    target_include_directories(fast_td3_simple PRIVATE ${SPDLOG_INCLUDE_DIRS})
+endif()
 
 if(CLI11_FOUND)
     target_link_libraries(fast_td3_simple CLI11::CLI11)
@@ -148,13 +191,28 @@ endif()
 # Tests
 enable_testing()
 add_executable(tests_simple tests/test_simple.cpp src/replay_buffer_simple.cpp src/normalizers_simple.cpp src/utils_simple.cpp)
-target_link_libraries(tests_simple GTest::gtest GTest::gtest_main spdlog::spdlog nlohmann_json::nlohmann_json)
+target_link_libraries(tests_simple GTest::gtest GTest::gtest_main nlohmann_json::nlohmann_json)
+
+if(spdlog_FOUND)
+    target_link_libraries(tests_simple spdlog::spdlog)
+else()
+    target_link_libraries(tests_simple ${SPDLOG_LIBRARIES})
+    target_include_directories(tests_simple PRIVATE ${SPDLOG_INCLUDE_DIRS})
+endif()
+
 add_test(NAME SimpleTests COMMAND tests_simple)
 
 # PyTorch version (if available)
 if(Torch_FOUND)
     add_executable(fast_td3_pytorch src/main.cpp src/networks.cpp src/replay_buffer.cpp src/normalizers.cpp src/utils.cpp src/config.cpp)
-    target_link_libraries(fast_td3_pytorch ${TORCH_LIBRARIES} spdlog::spdlog nlohmann_json::nlohmann_json)
+    target_link_libraries(fast_td3_pytorch ${TORCH_LIBRARIES} nlohmann_json::nlohmann_json)
+    
+    if(spdlog_FOUND)
+        target_link_libraries(fast_td3_pytorch spdlog::spdlog)
+    else()
+        target_link_libraries(fast_td3_pytorch ${SPDLOG_LIBRARIES})
+        target_include_directories(fast_td3_pytorch PRIVATE ${SPDLOG_INCLUDE_DIRS})
+    endif()
     
     if(CLI11_FOUND)
         target_link_libraries(fast_td3_pytorch CLI11::CLI11)
