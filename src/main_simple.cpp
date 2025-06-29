@@ -2,8 +2,11 @@
 #include <vector>
 #include <random>
 #include <memory>
+#include <map>
 #include <spdlog/spdlog.h>
+#ifdef USE_CLI11
 #include <CLI/CLI.hpp>
+#endif
 #include <nlohmann/json.hpp>
 #include <Eigen/Dense>
 #include "replay_buffer_simple.hpp"
@@ -13,6 +16,64 @@
 using json = nlohmann::json;
 using Matrix = Eigen::MatrixXf;
 using Vector = Eigen::VectorXf;
+
+// Simple command-line argument parser (fallback when CLI11 is not available)
+class SimpleArgParser {
+private:
+    std::map<std::string, std::string> args;
+    
+public:
+    SimpleArgParser(int argc, char* argv[]) {
+        for (int i = 1; i < argc; i++) {
+            std::string arg = argv[i];
+            if (arg.substr(0, 2) == "--") {
+                std::string key = arg.substr(2);
+                if (i + 1 < argc && argv[i + 1][0] != '-') {
+                    args[key] = argv[i + 1];
+                    i++; // Skip next argument
+                } else {
+                    args[key] = "true";
+                }
+            }
+        }
+    }
+    
+    template<typename T>
+    T get(const std::string& key, const T& default_value) const {
+        auto it = args.find(key);
+        if (it == args.end()) {
+            return default_value;
+        }
+        
+        if constexpr (std::is_same_v<T, int>) {
+            return std::stoi(it->second);
+        } else if constexpr (std::is_same_v<T, float>) {
+            return std::stof(it->second);
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            return it->second;
+        } else if constexpr (std::is_same_v<T, bool>) {
+            return it->second == "true" || it->second == "1";
+        }
+        return default_value;
+    }
+    
+    bool has(const std::string& key) const {
+        return args.find(key) != args.end();
+    }
+    
+    void print_help() const {
+        std::cout << "FastTD3 Simple - A simplified version without LibTorch\n";
+        std::cout << "Usage: ./fast_td3_simple [options]\n";
+        std::cout << "Options:\n";
+        std::cout << "  --seed <int>         Random seed (default: 42)\n";
+        std::cout << "  --max-steps <int>    Maximum training steps (default: 1000000)\n";
+        std::cout << "  --batch-size <int>   Batch size for training (default: 256)\n";
+        std::cout << "  --state-dim <int>    State dimension (default: 17)\n";
+        std::cout << "  --action-dim <int>   Action dimension (default: 6)\n";
+        std::cout << "  --log-level <str>    Log level (default: info)\n";
+        std::cout << "  --help               Show this help message\n";
+    }
+};
 
 // Simple neural network using Eigen
 class SimpleNeuralNetwork {
@@ -137,24 +198,20 @@ public:
 };
 
 int main(int argc, char* argv[]) {
-    CLI::App app{"FastTD3 Simple - A simplified version without LibTorch"};
+    SimpleArgParser arg_parser(argc, argv);
+    
+    if (arg_parser.has("help")) {
+        arg_parser.print_help();
+        return 0;
+    }
     
     // Configuration
-    int seed = 42;
-    int max_steps = 1000000;
-    int batch_size = 256;
-    int state_dim = 17;  // Humanoid state dimension
-    int action_dim = 6;  // Humanoid action dimension
-    std::string log_level = "info";
-    
-    app.add_option("--seed", seed, "Random seed");
-    app.add_option("--max-steps", max_steps, "Maximum training steps");
-    app.add_option("--batch-size", batch_size, "Batch size for training");
-    app.add_option("--state-dim", state_dim, "State dimension");
-    app.add_option("--action-dim", action_dim, "Action dimension");
-    app.add_option("--log-level", log_level, "Log level (debug, info, warn, error)");
-    
-    CLI11_PARSE(app, argc, argv);
+    int seed = arg_parser.get("seed", 42);
+    int max_steps = arg_parser.get("max-steps", 1000000);
+    int batch_size = arg_parser.get("batch-size", 256);
+    int state_dim = arg_parser.get("state-dim", 17);  // Humanoid state dimension
+    int action_dim = arg_parser.get("action-dim", 6);  // Humanoid action dimension
+    std::string log_level = arg_parser.get("log-level", "info");
     
     // Set up logging
     if (log_level == "debug") spdlog::set_level(spdlog::level::debug);
@@ -204,14 +261,15 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < state_dim; ++i) {
             next_state[i] = state_dist(gen);
         }
+        
         float reward = reward_dist(gen);
         bool done = (step % 1000 == 0);  // Episode ends every 1000 steps
         
-        // Store in replay buffer
+        // Store experience
         replay_buffer.add(state.data(), action.data(), next_state.data(), reward, done);
         
-        // Update if we have enough samples
-        if (step > 1000 && step % 4 == 0) {
+        // Update agent if we have enough samples
+        if (step > batch_size && step % 10 == 0) {
             auto batch = replay_buffer.sample(batch_size);
             
             std::vector<Vector> states, actions, next_states;
@@ -219,9 +277,13 @@ int main(int argc, char* argv[]) {
             std::vector<bool> dones;
             
             for (int i = 0; i < batch.size; ++i) {
-                states.emplace_back(Eigen::Map<const Vector>(batch.states[i].data(), state_dim));
-                actions.emplace_back(Eigen::Map<const Vector>(batch.actions[i].data(), action_dim));
-                next_states.emplace_back(Eigen::Map<const Vector>(batch.next_states[i].data(), state_dim));
+                Vector state_vec = Eigen::Map<const Vector>(batch.states[i], state_dim);
+                Vector action_vec = Eigen::Map<const Vector>(batch.actions[i], action_dim);
+                Vector next_state_vec = Eigen::Map<const Vector>(batch.next_states[i], state_dim);
+                
+                states.push_back(state_vec);
+                actions.push_back(action_vec);
+                next_states.push_back(next_state_vec);
                 rewards.push_back(batch.rewards[i]);
                 dones.push_back(batch.dones[i]);
             }
@@ -229,8 +291,9 @@ int main(int argc, char* argv[]) {
             agent.update(states, actions, next_states, rewards, dones);
         }
         
+        // Log progress
         if (step % 10000 == 0) {
-            spdlog::info("Step {}: Replay buffer size = {}", step, replay_buffer.size());
+            spdlog::info("Step {}: Buffer size = {}", step, replay_buffer.size());
         }
     }
     
