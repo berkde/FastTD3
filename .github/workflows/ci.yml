@@ -2,9 +2,9 @@ name: FastTD3 CI/CD
 
 on:
   push:
-    branches: [ master ]
+    branches: [ development ]
   pull_request:
-    branches: [ master ]
+    branches: [ development ]
 
 jobs:
   build-and-test:
