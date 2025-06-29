@@ -218,18 +218,27 @@ jobs:
     - name: Run tests
       working-directory: build
       run: |
-        # Check if test executable exists
-        if [ -f "./tests_simple" ]; then
-          echo "Test executable found, running tests..."
+        # Check if test executable exists in tests subdirectory
+        if [ -f "./tests/tests_simple" ]; then
+          echo "Test executable found in tests subdirectory, running tests..."
+          ./tests/tests_simple --gtest_output=xml:test_results.xml
+          ./tests/tests_simple --gtest_verbose
+          # Copy test results to main build directory for upload
+          cp test_results.xml . 2>/dev/null || echo "Test results already in main directory"
+        elif [ -f "./tests_simple" ]; then
+          echo "Test executable found in current directory, running tests..."
           ./tests_simple --gtest_output=xml:test_results.xml
           ./tests_simple --gtest_verbose
         else
           echo "ERROR: tests_simple executable not found!"
           echo "Available files:"
           ls -la
+          echo "Tests directory contents:"
+          ls -la tests/ || echo "No tests directory"
           echo "Trying to build tests explicitly..."
           make tests_simple || echo "Failed to build tests_simple"
-          ls -la tests_simple || echo "tests_simple still not found after explicit build"
+          echo "Checking for test executable after explicit build:"
+          find . -name "tests_simple" -type f -executable || echo "No tests_simple executable found"
           exit 1
         fi
 
@@ -255,7 +264,9 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-results-${{ matrix.os }}-${{ matrix.compiler }}-pytorch-${{ matrix.pytorch }}
-        path: build/test_results.xml
+        path: |
+          build/test_results.xml
+          build/tests/test_results.xml
         retention-days: 7
 
     - name: Build summary
