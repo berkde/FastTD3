@@ -20,7 +20,10 @@ find_package(spdlog REQUIRED)
 
 # Optional CLI11 for command line parsing
 find_package(CLI11 QUIET)
-if(NOT CLI11_FOUND)
+if(CLI11_FOUND)
+    message(STATUS "CLI11 found, will use CLI11 for command line parsing")
+    add_definitions(-DCLI11_FOUND)
+else()
     message(STATUS "CLI11 not found, will use fallback command line parsing")
 endif()
 
