@@ -54,6 +54,36 @@ jobs:
         ls -la /usr/include/eigen3/ || echo "Eigen3 not found in /usr/include/eigen3/"
         find /usr -name "Eigen" -type d 2>/dev/null | head -5 || echo "No Eigen directories found"
         pkg-config --exists eigen3 && echo "Eigen3 found via pkg-config" || echo "Eigen3 not found via pkg-config"
+        
+        # Additional debugging
+        echo "Checking for Eigen3 files:"
+        find /usr -name "*eigen*" -type f 2>/dev/null | head -10 || echo "No eigen files found"
+        echo "Checking include directories:"
+        ls -la /usr/include/ | grep -i eigen || echo "No eigen in /usr/include/"
+        echo "Checking lib directories:"
+        ls -la /usr/lib/ | grep -i eigen || echo "No eigen in /usr/lib/"
+        
+        # Ensure Eigen3 directory structure exists
+        echo "Setting up Eigen3 directory structure..."
+        sudo mkdir -p /usr/include/eigen3
+        if [ ! -f /usr/include/eigen3/Eigen ]; then
+          echo "Creating Eigen3 symlink if needed..."
+          sudo ln -sf /usr/include/eigen3 /usr/include/Eigen || echo "Symlink creation failed"
+        fi
+        echo "Final Eigen3 check:"
+        ls -la /usr/include/eigen3/ || echo "Still no eigen3 directory"
+        
+        # Fallback: Install Eigen3 from source if needed
+        if [ ! -f /usr/include/eigen3/Eigen/Dense ]; then
+          echo "Installing Eigen3 from source..."
+          cd /tmp
+          wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+          tar -xzf eigen-3.4.0.tar.gz
+          sudo cp -r eigen-3.4.0/Eigen /usr/include/eigen3/
+          sudo cp eigen-3.4.0/signature_of_eigen3_matrix_library /usr/include/eigen3/
+          cd -
+          echo "Eigen3 installed from source"
+        fi
 
     - name: Install dependencies (macOS)
       if: matrix.os == 'macos-latest'
