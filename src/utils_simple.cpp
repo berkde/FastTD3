@@ -21,7 +21,9 @@ void set_random_seed(int seed) {
 }
 
 float clip(float value, float min_val, float max_val) {
-    return std::clamp(value, min_val, max_val);
+    if (value < min_val) return min_val;
+    if (value > max_val) return max_val;
+    return value;
 }
 
 std::vector<float> clip_actions(const std::vector<float>& actions, float min_val, float max_val) {
