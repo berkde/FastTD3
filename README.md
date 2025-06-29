@@ -5,13 +5,15 @@
 [![CMake](https://img.shields.io/badge/CMake-3.16+-green.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A C++ implementation of the TD3 (Twin Delayed Deep Deterministic Policy Gradient) algorithm with both simple Eigen-based and full PyTorch versions. The project provides a complete, production-ready implementation with comprehensive testing and CI/CD support.
+A C++ implementation of the TD3 (Twin Delayed Deep Deterministic Policy Gradient) algorithm with both simple Eigen-based and full PyTorch versions. The project provides a complete, production-ready implementation with comprehensive testing and CI/CD support. **Now with MuJoCo integration for humanoid and robotics training!**
 
 ## Features
 
 - **Dual Implementation**: Both simple Eigen-based and full PyTorch versions
 - **Simple Mode**: No LibTorch dependencies, uses Eigen for matrix operations
 - **PyTorch Mode**: Full neural network capabilities with GPU support
+- **MuJoCo Integration**: Real physics simulation with humanoid and robotics environments
+- **Humanoid Training**: Pre-configured training scripts for humanoid robots
 - **Replay Buffer**: Efficient experience replay for off-policy learning
 - **Empirical Normalization**: State normalization for stable training
 - **TD3 Algorithm**: Complete Twin Delayed Deep Deterministic Policy Gradient implementation
@@ -26,14 +28,18 @@ A C++ implementation of the TD3 (Twin Delayed Deep Deterministic Policy Gradient
 - **CLI11**: Command-line argument parsing
 - **nlohmann/json**: JSON parsing and serialization
 - **Google Test**: Unit testing framework
+- **PyTorch**: Neural network operations (for PyTorch mode)
+- **MuJoCo**: Physics simulation (for MuJoCo mode)
+- **pybind11**: Python-C++ bindings (for MuJoCo integration)
 
 ## Installation
 
 ### Prerequisites
 
-The project supports two modes:
+The project supports three modes:
 1. **Simple Mode**: Uses only Eigen for matrix operations (no PyTorch required)
 2. **PyTorch Mode**: Full PyTorch integration with neural networks
+3. **MuJoCo Mode**: PyTorch + MuJoCo integration for real physics simulation
 
 ### Dependencies
 
@@ -46,6 +52,13 @@ The project supports two modes:
 
 #### Optional (PyTorch Mode)
 - **PyTorch (LibTorch)**: Neural network operations and GPU support
+
+#### Optional (MuJoCo Mode)
+- **Python 3.11**: Required for MuJoCo compatibility
+- **PyTorch**: Neural network operations
+- **MuJoCo**: Physics simulation engine
+- **Gymnasium**: RL environment interface
+- **pybind11**: Python-C++ bindings
 
 ### PyTorch Setup
 
@@ -76,6 +89,22 @@ pip install torch torchvision torchaudio
 
 # Build with Python PyTorch path
 cmake -DCMAKE_PREFIX_PATH=$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)') ..
+```
+
+### MuJoCo Setup
+
+For humanoid and robotics training, install MuJoCo dependencies:
+
+```bash
+# Install Python 3.11 (recommended for compatibility)
+brew install python@3.11
+
+# Create virtual environment
+python3.11 -m venv venv311
+source venv311/bin/activate
+
+# Install MuJoCo dependencies
+pip install torch gymnasium[mujoco] pybind11
 ```
 
 ### macOS (using Homebrew)
@@ -124,7 +153,7 @@ cmake --build . --config Release
 
 ### Building
 
-The project will automatically detect if PyTorch is available and build accordingly:
+The project will automatically detect if PyTorch and MuJoCo are available and build accordingly:
 
 ```bash
 mkdir build && cd build
@@ -135,6 +164,7 @@ make -j4
 **Available Executables:**
 - `fast_td3_simple`: Eigen-only version (always available)
 - `fast_td3_pytorch`: Full PyTorch version (if PyTorch found)
+- `fast_td3_mujoco`: MuJoCo integration version (if PyTorch + MuJoCo found)
 
 ### Running
 
@@ -156,6 +186,54 @@ make -j4
 ./fast_td3_pytorch --cuda --device-rank 0
 ```
 
+#### MuJoCo Mode (Humanoid Training)
+```bash
+# Basic humanoid training
+./fast_td3_mujoco --env_name Humanoid-v5 --total_timesteps 1000000
+
+# Humanoid standup training
+./fast_td3_mujoco --env_name HumanoidStandup-v5 --total_timesteps 2000000
+
+# Walker2d training
+./fast_td3_mujoco --env_name Walker2d-v5 --total_timesteps 500000
+
+# High-performance training with all optimizations
+./fast_td3_mujoco --env_name Humanoid-v5 --total_timesteps 2000000 --num_envs 256 --cuda
+```
+
+### Humanoid Training Scripts
+
+Pre-configured training scripts are available for easy humanoid training:
+
+```bash
+# Run the humanoid training script
+./tests/scripts/humanoid_training.sh
+
+# Or run individual examples
+./tests/scripts/humanoid_training.sh  # Runs all examples
+```
+
+The script includes:
+- Basic Humanoid training (Humanoid-v5)
+- Humanoid Standup training (HumanoidStandup-v5)
+- Walker2d training (Walker2d-v5)
+- High-performance training with all optimizations
+
+### Available MuJoCo Environments
+
+The MuJoCo integration supports the following environments:
+
+**Humanoid Environments:**
+- `Humanoid-v5`: Basic humanoid locomotion
+- `HumanoidStandup-v5`: Humanoid standup task
+- `Walker2d-v5`: 2D walker locomotion
+- `HalfCheetah-v5`: Half-cheetah locomotion
+- `Ant-v5`: Ant locomotion
+- `Hopper-v5`: Hopper locomotion
+
+**Legacy v2 Environments (fallback):**
+- `Humanoid-v2`, `HumanoidStandup-v2`, `Walker2d-v2`, etc.
+
 ### Command Line Options
 
 #### Simple Mode Options
@@ -175,6 +253,13 @@ make -j4
 - `--learning-starts`: Steps before learning begins
 - `--policy-frequency`: Policy update frequency
 - `--num-updates`: Number of updates per step
+
+#### MuJoCo Mode Options
+- All PyTorch mode options plus:
+- `--env_name`: MuJoCo environment name (e.g., "Humanoid-v5")
+- `--obs_normalization`: Enable observation normalization
+- `--reward_normalization`: Enable reward normalization
+- `--use_cdq`: Enable CDQ (Continuous Distributional Q-learning)
 
 ## Testing
 
@@ -198,6 +283,16 @@ make tests_simple
 # Run with detailed output and test discovery
 ./tests_simple --gtest_list_tests
 ./tests_simple --gtest_output=xml:test_results.xml
+```
+
+### MuJoCo Integration Tests
+
+```bash
+# Test MuJoCo environment creation
+./fast_td3_mujoco --env_name Humanoid-v5 --total_timesteps 10 --num_envs 1 --learning_starts 0
+
+# Test headless mode (for CI/CD)
+MUJOCO_GL=osmesa ./fast_td3_mujoco --env_name Humanoid-v5 --total_timesteps 10
 ```
 
 ### Test Coverage
@@ -343,6 +438,8 @@ TEST(NewComponentTest, NewFunctionality) {
 2. **SimpleTD3Agent**: TD3 agent with actor-critic networks
 3. **ReplayBuffer**: Experience replay buffer for off-policy learning
 4. **EmpiricalNormalization**: State normalization for training stability
+5. **MuJoCoEnvironment**: Python-C++ wrapper for MuJoCo environments
+6. **Actor/Critic Networks**: PyTorch-based neural networks for TD3
 
 ### Key Features
 
@@ -351,27 +448,31 @@ TEST(NewComponentTest, NewFunctionality) {
 - **State Normalization**: Running statistics for input normalization
 - **Exploration Noise**: Gaussian noise for action exploration
 - **Target Networks**: Soft updates for stable training
+- **MuJoCo Integration**: Real physics simulation for robotics training
+- **Humanoid Training**: Pre-configured scripts for humanoid robot training
 
 ## Limitations
 
-This is a simplified implementation with the following limitations:
+This implementation has the following limitations:
 
-1. **No GPU Support**: CPU-only implementation
-2. **Basic Neural Networks**: Simple feedforward networks without advanced features
-3. **No Environment Integration**: Uses dummy data for demonstration
-4. **Limited Optimization**: Basic gradient descent without advanced optimizers
+1. **Simple Mode**: CPU-only implementation with basic neural networks
+2. **MuJoCo Mode**: Requires Python 3.11+ for compatibility
+3. **Environment Dependencies**: MuJoCo environments require specific Python packages
+4. **GPU Support**: Limited to PyTorch and MuJoCo modes
 
 ## Future Improvements
 
-- Add proper backpropagation and gradient computation
-- Implement advanced optimizers (Adam, RMSprop)
-- Add GPU support with CUDA or OpenCL
-- Integrate with real environments (Gym, MuJoCo)
+- Add proper backpropagation and gradient computation for simple mode
+- Implement advanced optimizers (Adam, RMSprop) for simple mode
+- Add GPU support with CUDA or OpenCL for simple mode
+- Expand MuJoCo environment support
 - Add more sophisticated exploration strategies
 - Implement proper weight initialization schemes
 - Expand test coverage for neural network components
 - Add integration tests for full TD3 algorithm
 - Performance benchmarking tests
+- Support for more robotics environments
+- Real-time visualization and monitoring
 
 ## License
 
@@ -379,4 +480,8 @@ This project is provided as-is for educational and research purposes.
 
 ## Contributing
 
-Feel free to submit issues and enhancement requests! When contributing, please ensure all tests pass and add new tests for any new functionality. 
+Feel free to submit issues and enhancement requests! When contributing, please ensure all tests pass and add new tests for any new functionality.
+
+## Documentation
+
+- [MuJoCo Integration Guide](docs/MUJOCO_INTEGRATION.md) - Detailed guide for MuJoCo setup and usage 
